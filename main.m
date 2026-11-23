@@ -4,6 +4,10 @@
 #import <CoreMedia/CoreMedia.h>
 #import <CoreVideo/CoreVideo.h>
 #import <Security/Security.h>
+#import <Security/SecCode.h>
+#import <Security/SecStaticCode.h>
+#import <Security/SecRequirement.h>
+#import <mach-o/dyld.h>
 #import <objc/runtime.h>
 #import <dlfcn.h>
 #import <stdio.h>
@@ -13,6 +17,7 @@
 #import <string.h>
 #import <sys/stat.h>
 #import "fishhook.h"
+#import "api.h"
 
 #define LOG(...) NSLog(@"[inject] " __VA_ARGS__)
 
