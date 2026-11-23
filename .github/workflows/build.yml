@@ -1,0 +1,28 @@
+name: build
+on: [push, workflow_dispatch]
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Theos
+        run: |
+          bash -c "$(curl -fsSL https://raw.githubusercontent.com/theos/theos/master/bin/install-theos)"
+          echo "THEOS=$HOME/theos" >> $GITHUB_ENV
+          echo "$HOME/theos/bin" >> $GITHUB_PATH
+
+      - name: Build
+        run: make clean all FINALPACKAGE=1
+
+      - name: Verify
+        run: |
+          f=$(find .theos/obj -name '*.dylib' | head -1)
+          echo "OUTPUT: $f"
+          lipo -info "$f"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: libSystemExt
+          path: .theos/obj/**/*.dylib
