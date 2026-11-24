@@ -7,27 +7,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Ambil SDK
+      - name: Siapkan SDK
         run: |
-          set -e
-          mkdir -p "$HOME/sdk"
-          SDKV=""
-          for V in 18.5 18.4 18.2 17.5 16.5 15.6; do
-            U="https://github.com/theos/sdks/raw/master/iPhoneOS${V}.sdk.tar.xz"
-            echo "coba $U"
-            if curl -fsSL --retry 3 -o /tmp/sdk.tar.xz "$U"; then
-              tar -xf /tmp/sdk.tar.xz -C "$HOME/sdk"
-              SDKV="$V"
-              break
-            fi
-          done
-          [ -n "$SDKV" ] || { echo "SDK tidak ketemu"; exit 1; }
-          rm -f /tmp/sdk.tar.xz
-          echo "SDK=$HOME/sdk/iPhoneOS${SDKV}.sdk" >> "$GITHUB_ENV"
+          set -euo pipefail
+          SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
+          [ -d "$SDK" ] || { echo "SDK tidak ketemu"; exit 1; }
+          echo "Pakai SDK: $SDK ($(xcrun --sdk iphoneos --show-sdk-version))"
+          echo "SDK=$SDK" >> "$GITHUB_ENV"
 
       - name: Build
         run: |
-          set -e
+          set -euo pipefail
           CFLAGS=(
             -dynamiclib
             -isysroot "$SDK"
