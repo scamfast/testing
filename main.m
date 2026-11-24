@@ -4,13 +4,11 @@
 #import <CoreMedia/CoreMedia.h>
 #import <CoreVideo/CoreVideo.h>
 #import <Security/Security.h>
-#import <Security/SecCode.h>
-#import <Security/SecStaticCode.h>
-#import <Security/SecRequirement.h>
 #import <mach-o/dyld.h>
 #import <objc/runtime.h>
 #import <dlfcn.h>
 #import <stdio.h>
+#import <stdlib.h>
 #import <unistd.h>
 #import <errno.h>
 #import <dirent.h>
@@ -18,6 +16,17 @@
 #import <sys/stat.h>
 #import "fishhook.h"
 #import "api.h"
+
+// header SecCode/SecStaticCode/SecRequirement tidak tersedia di SDK iOS
+typedef CFTypeRef SecStaticCodeRef;
+typedef CFTypeRef SecCodeRef;
+typedef CFTypeRef SecRequirementRef;
+typedef uint32_t SecCSFlags;
+
+extern OSStatus SecStaticCodeCheckValidity(SecStaticCodeRef code, SecCSFlags flags,
+                                           SecRequirementRef requirement);
+extern OSStatus SecCodeCheckValidity(SecCodeRef code, SecCSFlags flags,
+                                     SecRequirementRef requirement);
 
 #define LOG(...) NSLog(@"[inject] " __VA_ARGS__)
 
