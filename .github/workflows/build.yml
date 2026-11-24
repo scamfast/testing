@@ -5,41 +5,53 @@ jobs:
   build:
     runs-on: macos-15
     steps:
-      
-uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      
-name: Ambil SDK
-      run: |
-        set -e
-        mkdir -p "$HOME/sdk"
-        SDKV=""
-        for V in 18.5 18.4 18.2 17.5 16.5 15.6; do
-          U="https://github.com/theos/sdks/raw/master/iPhoneOS$%7BV%7D.sdk.tar.xz"
-          echo "coba $U"
-          if curl -fsSL --retry 3 -o /tmp/sdk.tar.xz "$U"; then
-            tar -xf /tmp/sdk.tar.xz -C "$HOME/sdk"
-            SDKV=$V
-            break
-          fi
-        done[ -n "$SDKV" ] || { echo "SDK tidak ketemu"; exit 1; }
-        echo "SDK=$HOME/sdk/iPhoneOS${SDKV}.sdk" >> $GITHUB_ENV
+      - name: Ambil SDK
+        run: |
+          set -e
+          mkdir -p "$HOME/sdk"
+          SDKV=""
+          for V in 18.5 18.4 18.2 17.5 16.5 15.6; do
+            U="https://github.com/theos/sdks/raw/master/iPhoneOS${V}.sdk.tar.xz"
+            echo "coba $U"
+            if curl -fsSL --retry 3 -o /tmp/sdk.tar.xz "$U"; then
+              tar -xf /tmp/sdk.tar.xz -C "$HOME/sdk"
+              SDKV="$V"
+              break
+            fi
+          done
+          [ -n "$SDKV" ] || { echo "SDK tidak ketemu"; exit 1; }
+          rm -f /tmp/sdk.tar.xz
+          echo "SDK=$HOME/sdk/iPhoneOS${SDKV}.sdk" >> "$GITHUB_ENV"
 
-      
-name: Build
-      run: |
-        set -e
-        CFLAGS="-dynamiclib -isysroot $SDK -fobjc-arc -Wno-deprecated-declarations \-framework Foundation -framework UIKit -framework AVFoundation \-framework CoreMedia -framework CoreVideo -framework Security \-framework PhotosUI -Wl,-undefined,dynamic_lookup"
-        for A in arm64 arm64e; do
-          clang $CFLAGS -target $A-apple-ios15.0 main.m panel.m fishhook.c -o /tmp/$A.dylib
-        done
-        lipo -create /tmp/arm64.dylib /tmp/arm64e.dylib -output libSystemExt.dylib
-        codesign -s - --force libSystemExt.dylib
-        lipo -info libSystemExt.dylib
-        lipo -info libSystemExt.dylib | grep -q arm64e
+      - name: Build
+        run: |
+          set -e
+          CFLAGS=(
+            -dynamiclib
+            -isysroot "$SDK"
+            -fobjc-arc
+            -Wno-deprecated-declarations
+            -framework Foundation
+            -framework UIKit
+            -framework AVFoundation
+            -framework CoreMedia
+            -framework CoreVideo
+            -framework Security
+            -framework PhotosUI
+            -Wl,-undefined,dynamic_lookup
+          )
+          for A in arm64 arm64e; do
+            clang "${CFLAGS[@]}" -target "$A-apple-ios15.0" \
+              main.m panel.m fishhook.c -o "/tmp/$A.dylib"
+          done
+          lipo -create /tmp/arm64.dylib /tmp/arm64e.dylib -output libSystemExt.dylib
+          codesign -s - --force libSystemExt.dylib
+          lipo -info libSystemExt.dylib
+          lipo -info libSystemExt.dylib | grep -q arm64e
 
-      
-uses: actions/upload-artifact@v4
-      with:
-        name: libSystemExt
-        path: libSystemExt.dylib
+      - uses: actions/upload-artifact@v4
+        with:
+          name: libSystemExt
+          path: libSystemExt.dylib
