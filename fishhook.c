@@ -36,7 +36,10 @@ static bool protect_range(const void *addr, size_t size) {
 }
 
 static void do_rebind(struct rebindings_entry *reb, section_t *section, intptr_t slide,
-                      nlist_t *symtab, char *strtab, uint32_t *indirect_symtab) {
+                      nlist_t *symtab, char *strtab, uint32_t *indirect_symtab,
+                      uint32_t nindirect) {
+    if (section->reserved1 >= nindirect) return;
+    if (section->size / sizeof(void *) > nindirect - section->reserved1) return;
     uint32_t *indices = indirect_symtab + section->reserved1;
     void **bindings = (void **)((uintptr_t)slide + section->addr);
     if (!protect_range(bindings, section->size)) return;
@@ -86,6 +89,7 @@ int rebind_symbols_image(void *header, intptr_t slide,
     const mach_header_t *mh = (const mach_header_t *)header;
     const segment_command_t *linkedit = NULL;
     const struct symtab_command *symcmd = NULL;
+    const struct dysymtab_command *dysymcmd = NULL;
 
     uintptr_t cur = (uintptr_t)mh + sizeof(mach_header_t);
     for (uint32_t i = 0; i < mh->ncmds; i++) {
@@ -95,15 +99,17 @@ int rebind_symbols_image(void *header, intptr_t slide,
             if (!strcmp(s->segname, SEG_LINKEDIT)) linkedit = s;
         } else if (lc->cmd == LC_SYMTAB) {
             symcmd = (const struct symtab_command *)lc;
+        } else if (lc->cmd == LC_DYSYMTAB) {
+            dysymcmd = (const struct dysymtab_command *)lc;
         }
         cur += lc->cmdsize;
     }
-    if (!linkedit || !symcmd) return -1;
+    if (!linkedit || !symcmd || !dysymcmd) return -1;
 
     uintptr_t base = (uintptr_t)slide + linkedit->vmaddr - linkedit->fileoff;
     nlist_t *symtab = (nlist_t *)(base + symcmd->symoff);
     char *strtab = (char *)(base + symcmd->stroff);
-    uint32_t *indirect = (uint32_t *)(base + symcmd->indirectsymoff);
+    uint32_t *indirect = (uint32_t *)(base + dysymcmd->indirectsymoff);
 
     cur = (uintptr_t)mh + sizeof(mach_header_t);
     for (uint32_t i = 0; i < mh->ncmds; i++) {
@@ -116,7 +122,8 @@ int rebind_symbols_image(void *header, intptr_t slide,
                 for (uint32_t j = 0; j < s->nsects; j++) {
                     uint32_t t = sect[j].flags & SECTION_TYPE;
                     if (t == S_LAZY_SYMBOL_POINTERS || t == S_NON_LAZY_SYMBOL_POINTERS)
-                        do_rebind(ne, &sect[j], slide, symtab, strtab, indirect);
+                        do_rebind(ne, &sect[j], slide, symtab, strtab, indirect,
+                                  dysymcmd->nindirectsyms);
                 }
             }
         }
