@@ -6,8 +6,18 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Daftar file
+        shell: bash
+        run: |
+          pwd
+          git ls-files
+          find . -path ./.git -prune -o -type f -name '*.m' -print
 
       - name: Siapkan SDK
+        shell: bash
         run: |
           set -euo pipefail
           SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
@@ -16,8 +26,13 @@ jobs:
           echo "SDK=$SDK" >> "$GITHUB_ENV"
 
       - name: Build
+        shell: bash
         run: |
           set -euo pipefail
+          mapfile -t SRC < <(find . -path ./.git -prune -o -type f \
+            \( -name '*.m' -o -name '*.mm' -o -name '*.c' \) -print | sort)
+          [ "${#SRC[@]}" -gt 0 ] || { echo "Tidak ada file sumber"; exit 1; }
+          printf 'Sumber: %s\n' "${SRC[@]}"
           CFLAGS=(
             -dynamiclib
             -isysroot "$SDK"
@@ -34,7 +49,7 @@ jobs:
           )
           for A in arm64 arm64e; do
             clang "${CFLAGS[@]}" -target "$A-apple-ios15.0" \
-              main.m panel.m fishhook.c -o "/tmp/$A.dylib"
+              "${SRC[@]}" -o "/tmp/$A.dylib"
           done
           lipo -create /tmp/arm64.dylib /tmp/arm64e.dylib -output libSystemExt.dylib
           codesign -s - --force libSystemExt.dylib
