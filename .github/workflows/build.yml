@@ -29,8 +29,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mapfile -t SRC < <(find . -path ./.git -prune -o -type f \
-            \( -name '*.m' -o -name '*.mm' -o -name '*.c' \) -print | sort)
+          SRC=()
+          while IFS= read -r -d '' F; do
+            SRC+=("$F")
+          done < <(find . -path ./.git -prune -o -type f \
+            \( -name '*.m' -o -name '*.mm' -o -name '*.c' \) -print0)
           [ "${#SRC[@]}" -gt 0 ] || { echo "Tidak ada file sumber"; exit 1; }
           printf 'Sumber: %s\n' "${SRC[@]}"
           CFLAGS=(
